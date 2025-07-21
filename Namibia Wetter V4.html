@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Namibia Wettervorhersage</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            padding: 20px 0;
+        }
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1400px;
+            margin: 0 auto;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            background: white;
+        }
+        /* Master-Liste */
+        .location-master {
+            flex: 1;
+            min-width: 280px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-right: 1px solid #e0e0e0;
+        }
+        .location-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+        .location-item:hover {
+            background-color: #f0f8ff;
+        }
+        .location-item.active {
+            background-color: #e3f2fd;
+            font-weight: bold;
+        }
+        .location-id {
+            display: inline-block;
+            width: 25px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .view-controls {
+            text-align: center;
+            padding: 15px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+        }
+        .view-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 0 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .view-btn.active {
+            background-color: #2c3e50;
+        }
+        /* Detail-Ansicht */
+        .detail-view {
+            flex: 3;
+            min-width: 300px;
+            padding: 20px;
+            position: relative;
+        }
+        .weather-detail {
+            display: none;
+        }
+        .weather-detail.active {
+            display: block;
+        }
+        .current-weather {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .weather-card {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .forecast-container {
+            margin-top: 20px;
+        }
+        .hourly-forecast {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .hourly-item {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .hourly-time {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .weather-icon {
+            width: 40px;
+            height: 40px;
+            margin: 5px auto;
+        }
+        /* Karte */
+        .map-container {
+            height: 300px;
+            margin-top: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #detail-map {
+            width: 100%;
+            height: 100%;
+        }
+        /* Mobile Ansicht */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            .location-master {
+                max-height: 200px;
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            .current-weather {
+                grid-template-columns: 1fr;
+            }
+            .hourly-forecast {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Namibia Wettervorhersage</h1>
+    <div class="header-links">
+  <a href="https://www.example.com/alternative-seite" target="_blank" style="margin: 0 10px;">
+    <i class="fas fa-external-link-alt"></i> Alternative Ansicht
+  </a>
+</div>
+    <div class="main-container">
+        <!-- Master-Liste -->
+        <div class="location-master">
+            <div class="view-controls">
+                <button id="current-btn" class="view-btn active">Aktuell</button>
+                <button id="forecast3-btn" class="view-btn">3 Tage</button>
+                <button id="forecast5-btn" class="view-btn">5 Tage</button>
+            </div>
+            <div id="location-list"></div>
+        </div>
+        
+        <!-- Detail-Ansicht -->
+        <div class="detail-view">
+            <div id="detail-content">
+                <div class="weather-detail active" id="default-detail">
+                    <h2>Bitte einen Ort auswählen</h2>
+                    <p>Wählen Sie einen Standort aus der Liste links, um Wetterdaten anzuzeigen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script>
+        // API Key für OpenWeatherMap
+        const API_KEY = '125bf384fcba988ebb2692a41ae92141';
+        
+        // Standorte
+        const locations = [
+            { id: 2, name: 'Windhoek', lat: -22.566242, lon: 17.077680 },
+            { id: 3, name: 'Namib Desert Lodge', lat: -24.116445, lon: 15.905406 },
+            { id: 4, name: 'Sossusvlei (Namib Dune Star Camp)', lat: -24.098815, lon: 15.868636 },
+            { id: 5, name: 'Swakopmund', lat: -22.656755, lon: 14.540584 },
+            { id: 7, name: 'Gelukspoort', lat: -20.151556, lon: 15.688896 },
+            { id: 8, name: 'Etosha Nationalpark (Süd)', lat: -19.352204, lon: 15.929413 },
+            { id: 9, name: 'Etosha Nationalpark (Nord)', lat: -19.545542, lon: 18.074572 },
+            { id: 11, name: 'Ojanla Lodge', lat: -22.204512, lon: 17.582925 }
+        ];
+
+        // Globale Variablen
+        let currentView = 'current';
+        let detailMap = null;
+        let currentMarkers = [];
+
+        // Master-Liste initialisieren
+        function initLocationList() {
+            const locationList = document.getElementById('location-list');
+            locationList.innerHTML = '';
+            
+            locations.forEach(location => {
+                const item = document.createElement('div');
+                item.className = 'location-item';
+                item.innerHTML = `
+                    <span class="location-id">${location.id}.</span>
+                    <span class="location-name">${location.name}</span>
+                `;
+                item.addEventListener('click', () => showLocationDetail(location));
+                locationList.appendChild(item);
+            });
+        }
+
+        // Detailansicht anzeigen
+        async function showLocationDetail(location) {
+            // Aktive Klasse setzen
+            document.querySelectorAll('.location-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            try {
+                let detailHTML = '';
+                
+                if (currentView === 'current') {
+                    // Aktuelle Daten + Vorhersage
+                    const [currentResponse, forecastResponse] = await Promise.all([
+                        fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${location.lat}&lon=${location.lon}&appid=${API_KEY}&units=metric&lang=de`),
+                        fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${location.lat}&lon=${location.lon}&appid=${API_KEY}&units=metric&lang=de`)
+                    ]);
+                    
+                    const currentData = await currentResponse.json();
+                    const forecastData = await forecastResponse.json();
+                    
+                    detailHTML = `
+                        <div class="weather-detail active">
+                            <h2>${location.id}. ${location.name}</h2>
+                            
+                            <div class="current-weather">
+                                <div class="weather-card">
+                                    <h3>Aktuell</h3>
+                                    <img src="https://openweathermap.org/img/wn/${currentData.weather[0].icon}@2x.png" class="weather-icon">
+                                    <p>${currentData.weather[0].description}</p>
+                                    <p><strong>${Math.round(currentData.main.temp)}°C</strong> (gefühlt ${Math.round(currentData.main.feels_like)}°C)</p>
+                                </div>
+                                
+                                <div class="weather-card">
+                                    <h3>Details</h3>
+                                    <p>Luftfeuchtigkeit: ${currentData.main.humidity}%</p>
+                                    <p>Wind: ${Math.round(currentData.wind.speed * 3.6)} km/h</p>
+                                    <p>Druck: ${currentData.main.pressure} hPa</p>
+                                </div>
+                                
+                                <div class="weather-card">
+                                    <h3>Sonnenauf/-untergang</h3>
+                                    <p>Aufgang: ${new Date(currentData.sys.sunrise * 1000).toLocaleTimeString()}</p>
+                                    <p>Untergang: ${new Date(currentData.sys.sunset * 1000).toLocaleTimeString()}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="forecast-container">
+                                <h3>3-Tage Vorhersage</h3>
+                                ${createForecastHTML(forecastData.list, 3)}
+                            </div>
+                            
+                            <div class="map-container">
+                                <div id="detail-map"></div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Mehr-Tage-Vorhersage
+                    const days = currentView === 'forecast3' ? 3 : 5;
+                    const response = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${location.lat}&lon=${location.lon}&appid=${API_KEY}&units=metric&lang=de`);
+                    const data = await response.json();
+                    
+                    detailHTML = `
+                        <div class="weather-detail active">
+                            <h2>${location.id}. ${location.name}</h2>
+                            
+                            <div class="current-weather">
+                                <div class="weather-card">
+                                    <h3>Heute</h3>
+                                    <img src="https://openweathermap.org/img/wn/${data.list[0].weather[0].icon}@2x.png" class="weather-icon">
+                                    <p>${data.list[0].weather[0].description}</p>
+                                    <p><strong>${Math.round(data.list[0].main.temp)}°C</strong></p>
+                                </div>
+                            </div>
+                            
+                            <div class="forecast-container">
+                                <h3>${days}-Tage Vorhersage (stündlich)</h3>
+                                ${createForecastHTML(data.list, days)}
+                            </div>
+                            
+                            <div class="map-container">
+                                <div id="detail-map"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Detailansicht aktualisieren
+                document.getElementById('detail-content').innerHTML = detailHTML;
+                
+                // Karte initialisieren
+                initDetailMap(location);
+                
+            } catch (error) {
+                console.error('Fehler beim Laden der Daten:', error);
+                document.getElementById('detail-content').innerHTML = `
+                    <div class="weather-detail active">
+                        <h2>Fehler</h2>
+                        <p>Daten für ${location.name} konnten nicht geladen werden.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Vorhersage-HTML erstellen
+        function createForecastHTML(forecastList, days) {
+            let html = '';
+            const today = new Date();
+            const endDate = new Date();
+            endDate.setDate(today.getDate() + days);
+            
+            // Nach Tagen gruppieren
+            const forecastsByDay = {};
+            forecastList.forEach(item => {
+                const itemDate = new Date(item.dt * 1000);
+                if (itemDate <= endDate) {
+                    const dateStr = itemDate.toLocaleDateString('de-DE');
+                    if (!forecastsByDay[dateStr]) {
+                        forecastsByDay[dateStr] = [];
+                    }
+                    forecastsByDay[dateStr].push(item);
+                }
+            });
+            
+            // HTML für jeden Tag erstellen
+            for (const dateStr in forecastsByDay) {
+                const dayForecasts = forecastsByDay[dateStr];
+                const dayDate = new Date(dayForecasts[0].dt * 1000);
+                const dayName = dayDate.toLocaleDateString('de-DE', { weekday: 'long' });
+                
+                html += `
+                    <div class="forecast-day">
+                        <h4>${dayName}, ${dateStr}</h4>
+                        <div class="hourly-forecast">
+                            ${dayForecasts.map(item => `
+                                <div class="hourly-item">
+                                    <div class="hourly-time">${new Date(item.dt * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}</div>
+                                    <img src="https://openweathermap.org/img/wn/${item.weather[0].icon}.png" class="weather-icon">
+                                    <div>${item.weather[0].description}</div>
+                                    <div><strong>${Math.round(item.main.temp)}°C</strong></div>
+                                    <div>${item.main.humidity}%</div>
+                                    <div>${Math.round(item.wind.speed * 3.6)} km/h</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+
+        // Detail-Karte initialisieren
+        function initDetailMap(location) {
+            // Alte Karte entfernen
+            if (detailMap) {
+                detailMap.remove();
+                currentMarkers = [];
+            }
+            
+            // Neue Karte erstellen
+            detailMap = L.map('detail-map').setView([location.lat, location.lon], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(detailMap);
+            
+            // Marker hinzufügen
+            const marker = L.marker([location.lat, location.lon]).addTo(detailMap);
+            marker.bindPopup(`<b>${location.id}. ${location.name}</b><br>Breite: ${location.lat.toFixed(6)}<br>Länge: ${location.lon.toFixed(6)}`);
+            currentMarkers.push(marker);
+        }
+
+        // Ansicht wechseln
+        function setView(viewType) {
+            currentView = viewType;
+            
+            // Aktive Schaltfläche markieren
+            document.getElementById('current-btn').classList.remove('active');
+            document.getElementById('forecast3-btn').classList.remove('active');
+            document.getElementById('forecast5-btn').classList.remove('active');
+            document.getElementById(`${viewType}-btn`).classList.add('active');
+            
+            // Aktiven Ort neu laden
+            const activeItem = document.querySelector('.location-item.active');
+            if (activeItem) {
+                const locationId = activeItem.querySelector('.location-id').textContent.replace('.', '');
+                const location = locations.find(loc => loc.id == locationId);
+                showLocationDetail(location);
+            }
+        }
+
+        // Initialisierung
+        document.addEventListener('DOMContentLoaded', () => {
+            initLocationList();
+            
+            // Event-Listener für Ansichtsschaltflächen
+            document.getElementById('current-btn').addEventListener('click', () => setView('current'));
+            document.getElementById('forecast3-btn').addEventListener('click', () => setView('forecast3'));
+            document.getElementById('forecast5-btn').addEventListener('click', () => setView('forecast5'));
+            
+            // Ersten Ort automatisch auswählen
+            if (locations.length > 0) {
+                setTimeout(() => {
+                    document.querySelector('.location-item').click();
+                }, 500);
+            }
+        });
+    </script>
+</body>
+</html>
