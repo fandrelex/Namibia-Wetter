@@ -1,2 +1,2 @@
 # Namibia-Wetter
-Wettervorhersage für unseren Namibia Tripü
+Wettervorhersage für unseren Namibia Trip
