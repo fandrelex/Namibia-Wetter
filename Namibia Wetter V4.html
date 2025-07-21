@@ -139,17 +139,29 @@
         /* Mobile Ansicht */
         @media (max-width: 768px) {
           .main-container {
-            flex-direction: column-reverse; /* Detailansicht zuerst */
+            display: block;
+            position: relative;
           }
           
           .location-master {
+            position: relative;
             max-height: 40vh;
-            border-top: 2px solid #3498db;
-            border-bottom: none;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
           }
           
           .detail-view {
-            min-height: 50vh;
+            min-height: 60vh;
+            padding: 15px;
+          }
+          
+          .view-controls {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 20;
+            padding: 10px;
           }
         }
     </style>
