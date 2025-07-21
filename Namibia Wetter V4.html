@@ -138,27 +138,26 @@
         }
         /* Mobile Ansicht */
         @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-            }
-            .location-master {
-                max-height: 200px;
-                border-right: none;
-                border-bottom: 1px solid #e0e0e0;
-            }
-            .current-weather {
-                grid-template-columns: 1fr;
-            }
-            .hourly-forecast {
-                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            }
+          .main-container {
+            flex-direction: column-reverse; /* Detailansicht zuerst */
+          }
+          
+          .location-master {
+            max-height: 40vh;
+            border-top: 2px solid #3498db;
+            border-bottom: none;
+          }
+          
+          .detail-view {
+            min-height: 50vh;
+          }
         }
     </style>
 </head>
 <body>
     <h1>Namibia Wettervorhersage</h1>
     <div class="header-links">
-  <a href="https://www.example.com/alternative-seite" style="margin: 0 10px;">
+  <a href="https://fandrelex.github.io/Namibia-Wetter" style="margin: 0 10px;">
     <i class="fas fa-external-link-alt"></i> Alternative Ansicht
   </a>
 </div>
